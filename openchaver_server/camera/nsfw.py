@@ -76,7 +76,7 @@ def fit_coordinates_to_monitor(coordinates:dict[str,int]) -> dict[str,int]:
     monitor = sct.monitors[0]
 
     # Adjust the size of the monitor coordinates to remove the taskbar
-    monitor['height'] = monitor['height'] - 40 if monitor['height'] > 40 else monitor['height']
+    adjusted_monitor_height = monitor['height'] - 40 if monitor['height'] > 40 else monitor['height']
 
     # Ensure that top and left are positive
     top = max(0, coordinates['top'])
@@ -84,12 +84,12 @@ def fit_coordinates_to_monitor(coordinates:dict[str,int]) -> dict[str,int]:
     
 
     # Ensure top and left are within the monitor
-    top = min(monitor['height'], top)
+    top = min(adjusted_monitor_height, top)
     left = min(monitor['width'], left)
 
     # Ensure that the width and height are within the monitor
     width = min(coordinates['width'] , monitor['width'])
-    height = min(coordinates['height'] ,monitor['height'])
+    height = min(coordinates['height'] ,adjusted_monitor_height)
 
     return {'top':top,'left':left,'width':width,'height':height}
 
