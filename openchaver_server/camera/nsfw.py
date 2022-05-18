@@ -3,10 +3,37 @@ from openchaver_server.settings import sct , interpreter ,desktop
 from PIL import Image
 import cv2 as cv
 import numpy as np
+import matplotlib.pyplot as plt
 
 from pywinauto.win32structures import RECT
 from PIL.Image import Image as PILImage
 from pywinauto.controls.uiawrapper import UIAWrapper
+
+# Mask out all pixels that are identical to their neighbors
+def _mask_out_identical_pixels(img : np.ndarray,roll:int = 1) -> np.ndarray:
+
+    # Shift the image up one pixel
+    shifted_up = np.abs(img-np.roll(img, roll, axis=0))
+    # Shift the image down one pixel
+    shifted_down = np.abs(img-np.roll(img, roll * -1, axis=0))
+    # Shift the image left one pixel
+    shifted_left = np.abs(img-np.roll(img, roll, axis=1))
+    # Shift the image right one pixel
+    shifted_right = np.abs(img-np.roll(img, roll * -1, axis=1))
+
+    # Add the shifted images together
+    matte = shifted_up + shifted_down + shifted_left + shifted_right
+    
+    # Convert to a grayscale image
+    matte = cv.cvtColor(matte, cv.COLOR_BGR2GRAY)
+
+    # Threshold the image
+    _, matte = cv.threshold(matte, 0, 1, cv.THRESH_BINARY)
+
+    matte = cv.merge([matte, matte, matte])
+    img = cv.multiply(img,matte)
+
+    return img
 
 # Get the active window
 def get_active_window():
@@ -83,8 +110,15 @@ def get_title_of_window(window) -> str:
 
 # Get the skin rating of an image
 def get_skin_rating_of_image(img : PILImage) -> float:
+    
+    
     # Pillow to OpenCV and change to BGR
     img = cv.cvtColor(np.array(img), cv.COLOR_RGB2BGR)
+    
+    # Create a new image that is completely black besides any pixels that are the same between the two images
+    #img = _mask_out_identical_pixels(img,roll=5)
+    img = _mask_out_identical_pixels(img,roll=2)
+    img = _mask_out_identical_pixels(img,roll=1)
 
     #converting from gbr to hsv color space
     img_HSV = cv.cvtColor(img, cv.COLOR_BGR2HSV)
@@ -141,6 +175,7 @@ def parse_screenshot_to_real_pictures(img:PILImage) -> list[PILImage]:
     # Convert the image to OpenCV format
     img = cv.cvtColor(np.array(img), cv.COLOR_RGB2BGR)
 
+    # Create a new image that is completely black besides any pixels that are the same between the two images
     shifted_up = np.roll(img, 1, axis=0)
     # Shift the image down one pixel
     shifted_down = np.roll(img, -1, axis=0)
@@ -153,7 +188,6 @@ def parse_screenshot_to_real_pictures(img:PILImage) -> list[PILImage]:
     t_img = cv.addWeighted(shifted_up, 1, shifted_down, 0, 0.0)
     t_img = cv.addWeighted(t_img, 1, shifted_left, 0, 0.0)
     mask = cv.addWeighted(t_img, 1, shifted_right, 0, 0.0)
-
 
     # Create a new image that is completely black besides any pixels that are the same between the two images
     diff = cv.absdiff(img, mask)

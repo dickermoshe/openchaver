@@ -8,8 +8,9 @@ from PIL.Image import Image as PILImage
 from PIL import Image
 import imagehash
 
-
 from .nsfw import *
+COMPARE_MINIMUM = 3 # Images that are less different than COMPARE_MINIMUM are considered the same.
+NSFW_MINIMUM = .5 # Individual image that are rated lower than the minimum are not considered.
 
 def pillow_to_image_field(image:PILImage) -> ImageFile:
     """
@@ -31,6 +32,7 @@ class ScreenCapture(models.Model):
     average_nsfw = models.FloatField(blank=True,null=True)
     max_nsfw = models.FloatField(blank=True,null=True)
 
+
     
     @staticmethod
     def snap(full_monitor = False):
@@ -51,12 +53,14 @@ class ScreenCapture(models.Model):
             if image == None:
                 continue
 
+            # Compare the image to the previous image
             screen_capture = ScreenCapture.objects.all().order_by('-taken_at').first()
             if screen_capture != None:
                 similarity = screen_capture.compare_image(image)
-                if similarity < 3:
+                if similarity < COMPARE_MINIMUM:
                     continue
-
+            
+            
             image = pillow_to_image_field(image)
             ScreenCapture.objects.create(image=image,input_name=title)
     
@@ -96,10 +100,14 @@ class ScreenCapture(models.Model):
         skin_percentage_results = []
         nsfw_rating_results = []
         for image in images:
-
+            
             skin_percentage = get_skin_rating_of_image(image)
-
+            image.show()
+            print(skin_percentage)
+            input()
             if skin_percentage < skin_threshold:
+                
+                print('Skin percentage too low: '+str(skin_percentage))
                 continue
             else:
                 skin_percentage_results.append(skin_percentage)
@@ -109,7 +117,7 @@ class ScreenCapture(models.Model):
         
         # Clean up the nsfw_rating_results
 
-        nsfw_rating_results = [i for i in nsfw_rating_results if i > .5]
+        nsfw_rating_results = [i for i in nsfw_rating_results if i > NSFW_MINIMUM]
 
 
         # Save the results
