@@ -102,12 +102,8 @@ class ScreenCapture(models.Model):
         for image in images:
             
             skin_percentage = get_skin_rating_of_image(image)
-            image.show()
-            print(skin_percentage)
-            input()
+
             if skin_percentage < skin_threshold:
-                
-                print('Skin percentage too low: '+str(skin_percentage))
                 continue
             else:
                 skin_percentage_results.append(skin_percentage)
