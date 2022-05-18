@@ -6,16 +6,23 @@ import numpy as np
 
 from pywinauto.win32structures import RECT
 from PIL.Image import Image as PILImage
+from pywinauto.controls.uiawrapper import UIAWrapper
 
 # Get the active window
 def get_active_window():
     for window in desktop.windows():
-        if window.is_active():
-            return window
+        try:
+            if window.is_active() and window.window_text() not in [
+                'Program Manager',
+                'Taskbar',
+            ]:
+                return window
+        except:
+            pass
     return None
 
 # The first function return the coordinates of the picture we want to take
-def get_coordinates_of_screen(source:str) -> list[dict[str,int]]:
+def get_coordinates_on_screen(source:str) -> list[dict[str,int]]:
     
     def _rectangle_to_coordinates(rectangle:RECT) -> dict[str,int]:
         top = rectangle.top
@@ -24,18 +31,15 @@ def get_coordinates_of_screen(source:str) -> list[dict[str,int]]:
         height = rectangle.height()
         return {'top':top,'left':left,'width':width,'height':height}
 
-    if source == 'monitor':
+    if isinstance(source,UIAWrapper):
+        coordinates = _rectangle_to_coordinates(source.rectangle())
+        return [coordinates]
+
+    elif source == 'monitor':
         if len(sct.monitors) == 1:
             return sct.monitors
         else:
             return sct.monitors[1:]
-    
-    elif source == 'active_window':
-        # Get the active window
-        active_window = get_active_window()
-        if active_window != None:
-            coordinates = _rectangle_to_coordinates(active_window.rectangle())
-            return [coordinates]
     
     return []
     
@@ -65,11 +69,13 @@ def fit_coordinates_to_monitor(coordinates:dict[str,int]) -> dict[str,int]:
 def take_picture_of_coordinates(coordinates:dict[str,int]) -> PILImage:
     # Take a screenshot of the coordinates
     screenshot = sct.grab(coordinates)
-    return  Image.frombytes("RGB", screenshot.size, screenshot.bgra, "raw", "BGRX")
+    if screenshot.size.width > 0 and screenshot.size.height > 0:
+        return Image.frombytes("RGB", screenshot.size, screenshot.bgra, "raw", "BGRX")
+    else:
+        return None
 
 # Get Title of the active window
-def get_title_of_active_window() -> str:
-    window = get_active_window()
+def get_title_of_window(window) -> str:
     if window != None:
         return window.window_text()
     else:
