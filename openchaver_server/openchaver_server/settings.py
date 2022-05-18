@@ -11,7 +11,10 @@ https://docs.djangoproject.com/en/4.0/ref/settings/
 """
 
 from pathlib import Path
-from nsfw_utils import Checker
+
+from mss import mss
+from pywinauto import Desktop
+import tensorflow as tf
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -133,5 +136,8 @@ MEDIA_URL = '/media/'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
-nsfw = Checker()
-STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
+AI_MODEL_PATH = str(Path( __file__ ).parent.parent.absolute() / 'bin' /'lite_classifier.h5')
+interpreter = tf.lite.Interpreter(model_path=AI_MODEL_PATH)
+interpreter.allocate_tensors()
+sct = mss()
+desktop = Desktop(backend="uia")

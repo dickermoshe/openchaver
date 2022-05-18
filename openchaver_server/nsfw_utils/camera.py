@@ -23,6 +23,10 @@ class Camera:
     def __init__(self) -> None:
         self.sct = mss()
     
+    def _modify_monitor_size_to_remove_taskbar(self,monitor:dict[str,int]) -> None:
+        monitor['height'] = monitor['height'] - 100 if monitor['height'] > 100 else monitor['height']
+        return monitor
+
     def _pillow_to_opencv(self,image : PILImage) -> np.ndarray:
         """
         Converts the image to the specified format.
@@ -51,6 +55,10 @@ class Camera:
         """
         return self._opencv_to_pillow(self._mss_to_opencv(screenshot))
 
+    def _take_picture_of_coordinates(self,coordinates:dict[str,int]) -> PILImage:
+        sct_img = self.sct.grab(coordinates)
+        return self._mss_to_pillow(sct_img)
+
     def take_screenshot_of_monitor(self,monitor : int = 0) -> CameraRoll:
         """
         Takes a screenshot of the monitor.
@@ -69,8 +77,8 @@ class Camera:
         images = []
         for monitor_id in monitor_ids:
             monitor = self.sct.monitors[monitor_id]
-            sct_img = self.sct.grab(monitor)
-            images.append(self._mss_to_pillow(sct_img))
+            monitor = self._modify_monitor_size_to_remove_taskbar(monitor)
+            images.append(self._take_picture_of_coordinates(monitor))
 
         title = 'Monitor'
 
@@ -85,12 +93,22 @@ class Camera:
         # Get the list of all the windows
         apps = Apps()
         active_window = apps.get_active_window()
-        
-        images = [active_window.capture_as_image()]
+        active_window_rectangle = active_window.rectangle()
+
+        monitor_plane = self.sct.monitors[0]
+
+        top = active_window_rectangle.top if active_window_rectangle.top > 0 else 0
+        left = active_window_rectangle.left if active_window_rectangle.left > 0 else 0
+        width = active_window_rectangle.width() if active_window_rectangle.width() < monitor_plane['width'] else monitor_plane['width']
+        height = active_window_rectangle.height() if active_window_rectangle.height() < monitor_plane['height'] else monitor_plane['height']
+
+        monitor_plane = {'top':top,'left':left,'width':width,'height':height}
+        self._modify_monitor_size_to_remove_taskbar(monitor_plane)
+        images = [self._take_picture_of_coordinates(monitor_plane)]
+
         title = active_window.window_text()
 
         # Return the images
         return {'title':title,'images':images}
     
-
     
