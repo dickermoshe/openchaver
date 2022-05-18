@@ -144,3 +144,22 @@ interpreter = tf.lite.Interpreter(model_path=AI_MODEL_PATH)
 interpreter.allocate_tensors()
 sct = mss()
 desktop = Desktop(backend="uia")
+
+# Set logging level
+# https://docs.djangoproject.com/en/4.0/topics/logging/
+
+LOGGING  = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+        },
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['console'],
+            'level': os.getenv('DJANGO_LOG_LEVEL', 'INFO'),
+        },
+    },
+}

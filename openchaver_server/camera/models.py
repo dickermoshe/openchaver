@@ -7,7 +7,8 @@ from django.core.files.images import ImageFile
 from PIL.Image import Image as PILImage
 from PIL import Image
 import imagehash
-
+import logging
+logger = logging.getLogger('django')
 from .nsfw import *
 COMPARE_MINIMUM = 3 # Images that are less different than COMPARE_MINIMUM are considered the same.
 NSFW_MINIMUM = .5 # Individual image that are rated lower than the minimum are not considered.
@@ -36,21 +37,30 @@ class ScreenCapture(models.Model):
     
     @staticmethod
     def snap(full_monitor = False):
+        logger.info("Taking a screen capture")
         if full_monitor:
+            logger.info("Source: Full monitor")
             coord_list = get_coordinates_on_screen('monitor')
             title = 'Monitor'
         else:
+            logger.info("Source: Active Window")
             window = get_active_window()
             if window == None:
+                logger.info("No active window found. Exiting.")
                 return
             title = get_title_of_window(window)
+            logger.info(f"Title: {title}")
             coord_list = get_coordinates_on_screen(window)
             
 
         for coord in coord_list:
+            logger.info(f"Coordinates: {coord}")
             coord = fit_coordinates_to_monitor(coord)
+            logger.info(f"Fitted Coordinates: {coord}")
             image = take_picture_of_coordinates(coord)
+            
             if image == None:
+                logger.info("No image found. Exiting.")
                 continue
 
             # Compare the image to the previous image
@@ -58,9 +68,10 @@ class ScreenCapture(models.Model):
             if screen_capture != None:
                 similarity = screen_capture.compare_image(image)
                 if similarity < COMPARE_MINIMUM:
+                    logger.info("Image is too similar to previous image. Exiting.")
                     continue
             
-            
+            logger.info("Image is unique. Saving.")
             image = pillow_to_image_field(image)
             ScreenCapture.objects.create(image=image,input_name=title)
     
