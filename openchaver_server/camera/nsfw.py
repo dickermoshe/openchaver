@@ -187,7 +187,7 @@ def parse_screenshot_to_real_pictures(img:PILImage) -> list[PILImage]:
             images.append(cropped_image)
     
     # Convert the images to PIL format
-    images = [Image.fromarray(img) for img in images]
+    images = [Image.fromarray( cv.cvtColor(img , cv.COLOR_RGB2BGR) ) for img in images]
     
     return images
 

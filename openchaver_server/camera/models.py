@@ -1,8 +1,5 @@
 
 from django.db import models
-from django.db.models.signals import post_delete ,pre_save
-from django.dispatch import receiver
-
 from io import BytesIO
 from django.core.files.images import ImageFile
 from PIL.Image import Image as PILImage
@@ -55,6 +52,7 @@ class ScreenCapture(models.Model):
         # Convert the raw screen capture to a PIL image
         image = Image.open(self.image.path)
 
+
         if parse_images:
             images = parse_screenshot_to_real_pictures(image)
         else:
@@ -64,8 +62,9 @@ class ScreenCapture(models.Model):
         skin_percentage_results = []
         nsfw_rating_results = []
         for image in images:
+
             skin_percentage = get_skin_rating_of_image(image)
-            
+
             if skin_percentage < skin_threshold:
                 continue
             else:
@@ -74,6 +73,11 @@ class ScreenCapture(models.Model):
             nsfw_rating = get_nsfw_rating_of_image(image)
             nsfw_rating_results.append(nsfw_rating)
         
+        # Clean up the nsfw_rating_results
+
+        nsfw_rating_results = [i for i in nsfw_rating_results if i > .5]
+
+
         # Save the results
         try:
             self.skin_percentage = sum(skin_percentage_results)/len(skin_percentage_results)
@@ -83,28 +87,11 @@ class ScreenCapture(models.Model):
             self.average_nsfw = sum(nsfw_rating_results)/len(nsfw_rating_results)
         except ZeroDivisionError:
             self.average_nsfw = 0
-        self.max_nsfw = max(nsfw_rating_results)
+        try:
+            self.max_nsfw = max(nsfw_rating_results)
+        except ValueError:
+            self.max_nsfw = 0
         self.is_parsed = parse_images
         self.is_thresholded = skin_threshold > 0
         self.is_proccessed = True
         self.save()
-
-
-
-        
-
-            
-
-
-
-
-
-
-
-
-
-
-
-            
-
-

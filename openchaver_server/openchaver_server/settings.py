@@ -10,8 +10,11 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/4.0/ref/settings/
 """
 
-from pathlib import Path
+# Stop Tensorflow warnings
+import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2' 
 
+from pathlib import Path
 from mss import mss
 from pywinauto import Desktop
 import tensorflow as tf
