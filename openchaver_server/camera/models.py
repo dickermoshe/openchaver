@@ -1,5 +1,8 @@
 import uuid
 from io import BytesIO
+import traceback
+import logging
+logger = logging.getLogger('django')
 
 from django.db import models
 from django.core.files.images import ImageFile
@@ -7,20 +10,26 @@ from django.core.files.images import ImageFile
 from PIL.Image import Image as PILImage
 from PIL import Image
 import imagehash
-import logging
-logger = logging.getLogger('django')
+
 from .nsfw import *
+
 COMPARE_MINIMUM = 3 # Images that are less different than COMPARE_MINIMUM are considered the same.
 NSFW_MINIMUM = .5 # Individual image that are rated lower than the minimum are not considered.
 
 def pillow_to_image_field(image:PILImage) -> ImageFile:
     """
-    Converts a PILImage to an ImageField.
+    Converts a PILImage to an ImageFile.
     """
-    image_io = BytesIO()
-    image.save(image_io, format='JPEG')
-    filename = str(uuid.uuid4()) + '.jpg'
-    return ImageFile( image_io, filename)
+    try:
+        image_io = BytesIO()
+        image.save(image_io, format='JPEG')
+        filename = str(uuid.uuid4()) + '.jpg'
+        image_file = ImageFile(image_io, filename)
+        return image_file
+    except:
+        logger.error("Error converting pillow image to image field.")
+        logger.debug(traceback.format_exc())
+        return None
 
 class ScreenCapture(models.Model):
     image = models.ImageField(upload_to='screenCaptures/')
@@ -40,12 +49,13 @@ class ScreenCapture(models.Model):
         logger.info("Taking a screen capture")
         if full_monitor:
             logger.info("Source: Full monitor")
-            coord_list = get_coordinates_on_screen('monitor')
             title = 'Monitor'
+            logging.info(f"Title: {title}")
+            coord_list = get_coordinates_on_screen('monitor')
         else:
             logger.info("Source: Active Window")
             window = get_active_window()
-            if window == None:
+            if not window:
                 logger.info("No active window found. Exiting.")
                 return
             title = get_title_of_window(window)
@@ -60,7 +70,7 @@ class ScreenCapture(models.Model):
             image = take_picture_of_coordinates(coord)
             
             if image == None:
-                logger.info("No image found. Exiting.")
+                logger.info("No image found. Skipping.")
                 continue
 
             # Compare the image to the previous image
@@ -71,7 +81,6 @@ class ScreenCapture(models.Model):
                     logger.info("Image is too similar to previous image. Exiting.")
                     continue
             
-            logger.info("Image is unique. Saving.")
             image = pillow_to_image_field(image)
             ScreenCapture.objects.create(image=image,input_name=title)
     
@@ -89,24 +98,26 @@ class ScreenCapture(models.Model):
         """
 
         # Read image
-        image_1 = Image.open(self.image.path)
+        image_1 = self.open_image()
+        if not image_1:
+            logger.info("Image 1 not found. Returning 0.")
+            return 0
+        
         hash_1 = imagehash.dhash(image_1)
         hash_2 = imagehash.dhash(image_2)
-        return (hash_1 - hash_2)
+        similarity = (hash_1 - hash_2)
+        logger.info(f"Similarity: {similarity}")
+        return similarity
                 
     def process_image(self,skin_threshold=5,parse_images=True):
         """
         Convert a raw screen capture to a processed screen capture.
         """
         # Convert the raw screen capture to a PIL image
-        try:
-            image = Image.open(self.image.path)
-        except FileNotFoundError:
+        image = self.open_image()
+        if not image:
             logger.info("Image not found. Exiting.")
-            # Delete self
-            self.delete()
             return
-
 
         if parse_images:
             images = parse_screenshot_to_real_pictures(image)
@@ -151,3 +162,14 @@ class ScreenCapture(models.Model):
         self.is_proccessed = True
         self.save()
 
+    def open_image(self):
+        """
+        Open the image in the default image viewer.
+        """
+        try:
+            image = Image.open(self.image.path)
+            return image
+        except FileNotFoundError:
+            logger.info("Image not found. Deleting.")
+            self.delete()
+            return False

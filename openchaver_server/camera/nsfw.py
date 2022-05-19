@@ -1,17 +1,19 @@
-from django.conf import settings
+import logging
+import traceback
+logger = logging.getLogger('django')
 
 from PIL import Image
 import cv2 as cv
 import numpy as np
-import matplotlib.pyplot as plt
+from mss import mss
+from pywinauto import Desktop
+import tensorflow as tf
 
 from pywinauto.win32structures import RECT
 from PIL.Image import Image as PILImage
 from pywinauto.controls.uiawrapper import UIAWrapper
 
-from mss import mss
-from pywinauto import Desktop
-import tensorflow as tf
+from django.conf import settings
 
 interpreter = tf.lite.Interpreter(model_path=settings.AI_MODEL_PATH)
 interpreter.allocate_tensors()
@@ -44,15 +46,30 @@ def _mask_out_identical_pixels(img : np.ndarray,roll:int = 1) -> np.ndarray:
 
 # Get the active window
 def get_active_window():
-    for window in desktop.windows():
+    try:
+        desktop_windows = desktop.windows()
+    except:
+        logger.error('Could not retrieve any windows')
+        logger.debug(traceback.format_exc())
+        return None
+    
+    for window in desktop_windows:
         try:
-            if window.is_active() and window.window_text() not in [
+            is_active = window.is_active()
+            window_title = window.window_text()
+            logger.debug(f'Window title: {window_title}')
+            logger.debug(f'Active: {is_active}')
+
+            if is_active and window_title not in [
                 'Program Manager',
-                'Taskbar',
-            ]:
+                'Taskbar',]:
+                logger.debug(f'Active window: {window_title}')
                 return window
+            
         except:
-            pass
+            logger.error('Could not retrieve window title/active status. Skipping.')
+            logger.debug(traceback.format_exc())
+            continue
     return None
 
 # The first function return the coordinates of the picture we want to take
@@ -66,16 +83,28 @@ def get_coordinates_on_screen(source:str) -> list[dict[str,int]]:
         return {'top':top,'left':left,'width':width,'height':height}
 
     if isinstance(source,UIAWrapper):
-        coordinates = _rectangle_to_coordinates(source.rectangle())
-        return [coordinates]
+        logger.debug('Getting coordinates from UIAWrapper')
+
+        try:
+            rect = source.rectangle()
+            coordinates = _rectangle_to_coordinates(rect)
+            return [coordinates]
+        except:
+            logger.error('Could not get rectangle from UIAWrapper')
+            logger.debug(traceback.format_exc())
+            return None
 
     elif source == 'monitor':
+
+        logger.debug('Getting coordinates from monitor')
+        logger.debug(f'Monitors: {sct.monitors}')
+
         if len(sct.monitors) == 1:
             return sct.monitors
-        else:
+        elif len(sct.monitors) > 1:
             return sct.monitors[1:]
-    
-    return []
+        else:
+            return None
     
 # Adjust the size of the coordinates to fit the screen
 def fit_coordinates_to_monitor(coordinates:dict[str,int]) -> dict[str,int]:
@@ -103,17 +132,29 @@ def fit_coordinates_to_monitor(coordinates:dict[str,int]) -> dict[str,int]:
 # Take a screenshot of the coordinates
 def take_picture_of_coordinates(coordinates:dict[str,int]) -> PILImage:
     # Take a screenshot of the coordinates
-    screenshot = sct.grab(coordinates)
-    if screenshot.size.width > 0 and screenshot.size.height > 0:
-        return Image.frombytes("RGB", screenshot.size, screenshot.bgra, "raw", "BGRX")
-    else:
+    try:
+        screenshot = sct.grab(coordinates)
+    except:
+        logger.error('Could not take screenshot')
+        logger.debug(traceback.format_exc())
+        return None
+    try:
+        if screenshot.size.width > 0 and screenshot.size.height > 0:
+            return Image.frombytes("RGB", screenshot.size, screenshot.bgra, "raw", "BGRX")
+        else:
+            return None
+    except:
+        logger.error('Could not convert screenshot to PILImage')
+        logger.debug(traceback.format_exc())
         return None
 
 # Get Title of the active window
 def get_title_of_window(window) -> str:
-    if window != None:
+    try:
         return window.window_text()
-    else:
+    except:
+        logger.error('Could not get title of window. Returning blank string')
+        logger.debug(traceback.format_exc())
         return ''
 
 # Get the skin rating of an image

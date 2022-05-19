@@ -33,5 +33,9 @@ def run():
             if len(day_images) > 10:
                 for image in day_images[10:]:
                     image.delete()
+        
+        if get_size_of_screenshot_folder() > settings.MAX_SCREENSHOT_SIZE:
+            oldest_image = ScreenCapture.objects.filter(is_proccessed=True,taken_at__date=timezone.now()).order_by('?')
+            oldest_image.delete()
 
         time.sleep(30)
