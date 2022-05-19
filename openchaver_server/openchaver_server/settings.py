@@ -15,9 +15,7 @@ import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2' 
 
 from pathlib import Path
-from mss import mss
-from pywinauto import Desktop
-import tensorflow as tf
+
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -140,10 +138,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
 AI_MODEL_PATH = str(Path( __file__ ).parent.parent.absolute() / 'bin' /'lite_classifier.h5')
-interpreter = tf.lite.Interpreter(model_path=AI_MODEL_PATH)
-interpreter.allocate_tensors()
-sct = mss()
-desktop = Desktop(backend="uia")
+
 
 # Set logging level
 # https://docs.djangoproject.com/en/4.0/topics/logging/
@@ -161,5 +156,14 @@ LOGGING  = {
             'handlers': ['console'],
             'level': os.getenv('DJANGO_LOG_LEVEL', 'INFO'),
         },
+        'image_processor': {
+            'handlers': ['console'],
+            'level': os.getenv('DJANGO_LOG_LEVEL', 'INFO'),
+        },
     },
 }
+
+MAX_SCREENSHOT_SIZE = 100 * 1000000 # 100 MB
+MAX_CPU_PERCENT = 90 # 90%
+MAX_NON_PROCESS_TIME = 10 # seconds
+REQ_NSFW_4_DELETION = .5 # 50%

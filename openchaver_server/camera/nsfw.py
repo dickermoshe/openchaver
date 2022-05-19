@@ -1,4 +1,4 @@
-from openchaver_server.settings import sct , interpreter ,desktop
+from django.conf import settings
 
 from PIL import Image
 import cv2 as cv
@@ -8,6 +8,15 @@ import matplotlib.pyplot as plt
 from pywinauto.win32structures import RECT
 from PIL.Image import Image as PILImage
 from pywinauto.controls.uiawrapper import UIAWrapper
+
+from mss import mss
+from pywinauto import Desktop
+import tensorflow as tf
+
+interpreter = tf.lite.Interpreter(model_path=settings.AI_MODEL_PATH)
+interpreter.allocate_tensors()
+sct = mss()
+desktop = Desktop(backend="uia")
 
 # Mask out all pixels that are identical to their neighbors
 def _mask_out_identical_pixels(img : np.ndarray,roll:int = 1) -> np.ndarray:
@@ -20,17 +29,15 @@ def _mask_out_identical_pixels(img : np.ndarray,roll:int = 1) -> np.ndarray:
     shifted_left = np.abs(img-np.roll(img, roll, axis=1))
     # Shift the image right one pixel
     shifted_right = np.abs(img-np.roll(img, roll * -1, axis=1))
-
     # Add the shifted images together
     matte = shifted_up + shifted_down + shifted_left + shifted_right
-    
     # Convert to a grayscale image
     matte = cv.cvtColor(matte, cv.COLOR_BGR2GRAY)
-
     # Threshold the image
     _, matte = cv.threshold(matte, 0, 1, cv.THRESH_BINARY)
-
+    # Make into 3 channels
     matte = cv.merge([matte, matte, matte])
+    # Matte out
     img = cv.multiply(img,matte)
 
     return img
