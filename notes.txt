@@ -1,1 +1,0 @@
-Set MEDIA_ROOT

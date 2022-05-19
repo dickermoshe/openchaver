@@ -99,7 +99,13 @@ class ScreenCapture(models.Model):
         Convert a raw screen capture to a processed screen capture.
         """
         # Convert the raw screen capture to a PIL image
-        image = Image.open(self.image.path)
+        try:
+            image = Image.open(self.image.path)
+        except FileNotFoundError:
+            logger.info("Image not found. Exiting.")
+            # Delete self
+            self.delete()
+            return
 
 
         if parse_images:
